@@ -1,0 +1,148 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <h1>{% block title %} Upcoming Stops {% endblock %}</h1>
+    <div class="mdc-data-table" style="float: left; width: 55%;">
+         <table class="mdc-data-table__table" aria-label="Dessert calories">
+            <thead>
+               <tr class="mdc-data-table__header-row">
+                    <th class="mdc-data-table__header-cell" role="columnheader" scope="col">&ensp;#</th>
+                    <th class="mdc-data-table__header-cell" role="columnheader" scope="col"> Stop Name</th>
+               </tr>
+            </thead>
+
+
+             <tbody class="mdc-data-table__content" >
+                {% for stop in stops %}
+                 <tr class="mdc-data-table__row" onclick="dataClick(this)" >
+                    <td class="mdc-data-table__cell">&ensp;{{ stop.seq }}</td>
+                    <td class="mdc-data-table__cell">&ensp;{{ stop.name|title }}</td>
+                 </tr>
+            {% endfor %}
+             </tbody>
+
+         </table>
+    </div>
+    <script>
+    function dataClick(row){
+
+        //have the stop number, need to get the location data so i can put it into the map
+        console.log(row.innerHTML.toString().trim().substring(34,36).replace('<',''));
+
+        //basic highlightable script, need css to change
+       if( row.classList.contains("highlight")){
+            row.classList.remove("highlight");
+            //add maps marker
+            
+       }
+       else{
+        row.classList.add("highlight");
+        //remove maps marker
+       }
+
+
+    }
+    </script>
+
+    <div id="map" style="float: right; width: 45%;height: 600px;position:relative;"></div>
+    <script>
+        const key = "{{ gKey }}";
+        (g=>{var h,a,k,p="The Google Maps JavaScript API",c="google",l="importLibrary",q="__ib__",m=document,b=window;b=b[c]||(b[c]={});var d=b.maps||(b.maps={}),r=new Set,e=new URLSearchParams,u=()=>h||(h=new Promise(async(f,n)=>{await (a=m.createElement("script"));e.set("libraries",[...r]+"");for(k in g)e.set(k.replace(/[A-Z]/g,t=>"_"+t[0].toLowerCase()),g[k]);e.set("callback",c+".maps."+q);a.src=`https://maps.${c}apis.com/maps/api/js?`+e;d[q]=f;a.onerror=()=>h=n(Error(p+" could not load."));a.nonce=m.querySelector("script[nonce]")?.nonce||"";m.head.append(a)}));d[l]?console.warn(p+" only loads once. Ignoring:",g):d[l]=(f,...n)=>r.add(f)&&u().then(()=>d[l](f,...n))})({
+        key: key,
+        v: "weekly",
+        // Use the 'v' parameter to indicate the version to use (weekly, beta, alpha, etc.).
+        // Add other bootstrap parameters as needed, using camel case.
+        });
+
+        // Initialize and add the map
+        let map, infoWindow;
+
+        async function initMap() {
+
+            // Bus location
+            const latitude = {{ vehicleLat }};
+            const longitude = {{ vehicleLong }};
+            const position = { lat: latitude, lng: longitude };
+
+            //Generate map and marker elements
+            const { Map } = await google.maps.importLibrary("maps");
+            const { AdvancedMarkerElement } = await google.maps.importLibrary("marker");
+
+            //Initialize map
+            map = new Map(document.getElementById("map"), {
+                zoom: 17,
+                center: position,
+                mapId: "MAP ---",
+            });
+
+            //map marker background
+            const stopNumber= document.createElement("div");
+
+            stopNumber.className = "stop-num";
+            stopNumber.textContent = "Current Location";
+
+
+            // Initialize marker
+            const marker1 = new AdvancedMarkerElement({
+                map: map,
+                position: position,
+                title: "BUS ---",
+                content:stopNumber,
+            });
+
+            // Initialize info window to display location retrieval errors
+            infoWindow = new google.maps.InfoWindow();
+
+            // Retrieve user location
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const userPosition = {
+                            lat: position.coords.latitude,
+                            lng: position.coords.longitude,
+                        };
+
+                        // Initialize user location marker
+                        const marker2 = new AdvancedMarkerElement({
+                            map: map,
+                            position: userPosition,
+                            title: "Current User Location",
+                        });
+
+                        // Create a new LatLngBounds object
+                        const bounds = new google.maps.LatLngBounds();
+
+                        // Extend the bounds to include each marker's position
+                        bounds.extend(marker1.position);
+                        bounds.extend(marker2.position);
+
+                        // Now fit the map to the included bounds
+                        map.fitBounds(bounds);
+                    },
+                    (error) => {
+                        handleLocationError(true, infoWindow, map.center);
+                    }
+                );
+            } else {
+                handleLocationError(false, infoWindow, map.center);
+            }
+
+        }
+
+        function handleLocationError(browserHasGeolocation, infoWindow, pos) { 
+            infoWindow.setPosition(pos);
+            
+            if (browserHasGeolocation) {
+                infoWindow.setContent("Error: Failed to retrieve user geolocation, please allow location access.");
+            }
+            else {
+                infoWindow.setContent("Error: Your browser doesn't support geolocation.");
+            }
+            
+            infoWindow.open(map);
+        }
+
+        initMap();
+
+    </script>
+{% endblock %}
